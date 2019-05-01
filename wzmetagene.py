@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Generate intervals for meta-gene plot.
 Usage:
