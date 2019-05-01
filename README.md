@@ -1,5 +1,5 @@
 # Create Metagene intervals
-"metagene" intervals associated with a given interval (input, in bed format) is the set of intervals positioned with respect to the input interval. This allows for metagene plots to be made.
+"metagene" intervals associated with a given interval (input, in bed format) is the set of intervals positioned with respect to the input interval. This allows for metagene/waterfall plots to be made.
 
 ## Features
 - Strand-aware
