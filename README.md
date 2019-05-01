@@ -10,7 +10,7 @@
 ## Usage
 
 ```sh
-python ~/wzlib/pyutils/wzmetagene.py interval_bed_file
+python wzmetagene.py interval_bed_file
 ```
 
 ## Examples
