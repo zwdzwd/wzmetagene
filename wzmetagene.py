@@ -8,13 +8,13 @@ python ~/wzlib/pyutils/wzmetagene.py input_bed | les
 import argparse
 import numpy as np
 
-def sample_forward(args, chrm, beg, end, fields, index_func):
+def sample_forward(args, chrm, beg, end, fields, index_func, step, windowsize):
 
     """ sample interval in the direction of bigger coordinates """
 
-    _window_end = end + args.step
+    _window_end = end + step
     for i in xrange(args.numflank):
-        _window_beg = _window_end - args.windowsize
+        _window_beg = _window_end - windowsize
         if args.middle:
             window_mid = int((_window_beg + _window_end)/2.0)
             window_beg = window_mid-1
@@ -22,13 +22,18 @@ def sample_forward(args, chrm, beg, end, fields, index_func):
         else:
             window_beg = int(_window_beg)
             window_end = int(_window_end)
-            _window_end += args.step 
 
         index = index_func(i)
         if index < 0:
-            reg = '(%d)-(%d)' % (end - window_end, end - window_beg)
+            if args.varyflank:
+                reg = '(%d)-(%d)' % (-i-1, -i)
+            else:
+                reg = '(%d)-(%d)' % (end - window_end, end - window_beg)
         else:
-            reg = '%d-%d' % (window_beg - end, window_end - end)
+            if args.varyflank:
+                reg = '%d-%d' % (i, i+1)
+            else:
+                reg = '%d-%d' % (window_beg - end, window_end - end)
 
         # in collapsed case, you can have index 0
         if index >= 0:
@@ -36,18 +41,19 @@ def sample_forward(args, chrm, beg, end, fields, index_func):
         else:
             area = -1
             
+        _window_end += step             
         if window_beg > 0 and window_end > window_beg:
             print('%s\t%d\t%d\t%d\t%s\t%d\t%s' %
                   (chrm, window_beg, window_end,
                    index, reg, area, '\t'.join(fields)))
 
-def sample_backward(args, chrm, beg, end, fields, index_func):
+def sample_backward(args, chrm, beg, end, fields, index_func, step, windowsize):
 
     """ sample intervals in the direction of smaller coordinates """
 
-    _window_beg = beg - args.step
+    _window_beg = beg - step
     for i in xrange(args.numflank):
-        _window_end = _window_beg + args.windowsize
+        _window_end = _window_beg + windowsize
         if args.middle:
             window_mid = int((_window_beg + _window_end)/2.0)
             window_beg = window_mid-1
@@ -55,19 +61,25 @@ def sample_backward(args, chrm, beg, end, fields, index_func):
         else:
             window_beg = int(_window_beg)
             window_end = int(_window_end)
-            _window_beg -= args.step
 
         index = index_func(i)
         if index < 0:
-            reg = '(%d)-(%d)' % (window_beg - beg, window_end - beg)
+            if args.varyflank:
+                reg = '(%d)-(%d)' % (-i-1, -i)
+            else:
+                reg = '(%d)-(%d)' % (window_beg - beg, window_end - beg)
         else:
-            reg = '%d-%d' % (beg - window_end, beg - window_beg)
+            if args.varyflank:
+                reg = '%d-%d' % (i, i+1)
+            else:
+                reg = '%d-%d' % (beg - window_end, beg - window_beg)
 
         if index >= 0:
             area = 1
         else:
             area = -1
-            
+        
+        _window_beg -= step            
         if window_beg > 0 and window_end > window_beg:
             print('%s\t%d\t%d\t%d\t%s\t%d\t%s' %
                   (chrm, window_beg, window_end,
@@ -90,7 +102,7 @@ def sample_internal(args, chrm, beg, end, fields, index_func):
         # 0 for internal
         if window_beg > 0 and window_end > window_beg:
             print('%s\t%d\t%d\t%d\t%d-%d%%\t0\t%s' %
-                  (chrm, window_beg, window_end, index, 
+                  (chrm, window_beg, window_end, index,
                    float(index)/args.numinternal*100,
                    float(index+1)/args.numinternal*100, '\t'.join(fields)))
 
@@ -118,6 +130,13 @@ def main(args):
         beg = int(fields[1])
         end = int(fields[2])
 
+        if args.varyflank:
+            step = (end - beg + 1) / (args.numinternal)
+            windowsize = step
+        else:
+            step = args.step
+            windowsize = args.windowsize
+
         if args.collapse:
             mid = (beg + end + 1) / 2
             beg = mid
@@ -125,8 +144,8 @@ def main(args):
 
         if args.collapsecenter:
             mid = (beg + end + 1) / 2
-            beg = mid - args.windowsize / 2
-            end = mid + args.windowsize / 2
+            beg = mid - windowsize / 2
+            end = mid + windowsize / 2
 
         if args.strand is None:
             strand = '+'
@@ -135,17 +154,17 @@ def main(args):
 
         if strand == '+':
             if args.fold:
-                sample_backward(args, chrm, beg, end, fields, lambda i: -i-1)
+                sample_backward(args, chrm, beg, end, fields, lambda i: -i-1, step, windowsize)
                 sample_internal(args, chrm, beg, end, fields, lambda i: min(i, args.numinternal-1-i))
-                sample_forward(args, chrm, beg, end, fields, lambda i: -i-1)
+                sample_forward(args, chrm, beg, end, fields, lambda i: -i-1, step, windowsize)
             else:
-                sample_backward(args, chrm, beg, end, fields, lambda i: -i-1)
+                sample_backward(args, chrm, beg, end, fields, lambda i: -i-1, step, windowsize)
                 sample_internal(args, chrm, beg, end, fields, lambda i: i)
-                sample_forward(args, chrm, beg, end, fields, lambda i: args.numinternal+i)
+                sample_forward(args, chrm, beg, end, fields, lambda i: args.numinternal+i, step, windowsize)
         else:
-            sample_forward(args, chrm, beg, end, fields, lambda i: -i-1)
+            sample_forward(args, chrm, beg, end, fields, lambda i: -i-1, step, windowsize)
             sample_internal(args, chrm, beg, end, fields, lambda i: args.numinternal-1-i)
-            sample_backward(args, chrm, beg, end, fields, lambda i: args.numinternal+i)
+            sample_backward(args, chrm, beg, end, fields, lambda i: args.numinternal+i, step, windowsize)
 
     return
 
@@ -163,6 +182,8 @@ if __name__ == '__main__':
     # controls flanking length
     parser.add_argument('-f', '--flank', default=10000, type=int, 
                         help = 'length of flanking to plot, default 10kb')
+    parser.add_argument('--varyflank', action = 'store_true',
+                        help = 'allow flanking region to vary according to the gene length')
     parser.add_argument('-F', '--step', type = int, default=-1, 
                         help = 'plot each X bases for flanking sequences, by default false (-1), this overrides -f')
     parser.add_argument('-m', '--numflank', type = int, default=30, 
