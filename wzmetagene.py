@@ -8,163 +8,239 @@ python ~/wzlib/pyutils/wzmetagene.py input_bed | les
 import argparse
 import numpy as np
 
-def sample_forward(args, chrm, beg, end, fields, index_func, step, windowsize):
+class Record(object):
 
-    """ sample interval in the direction of bigger coordinates """
+    def __init__(self, fields, args):
 
-    _window_end = end + step
-    for i in xrange(args.numflank):
-        _window_beg = _window_end - windowsize
-        if args.middle:
-            window_mid = int((_window_beg + _window_end)/2.0)
-            window_beg = window_mid-1
-            window_end = window_mid
-        else:
-            window_beg = int(_window_beg)
-            window_end = int(_window_end)
-
-        index = index_func(i)
-        if index < 0:
-            if args.varyflank:
-                reg = '(%d)-(%d)' % (-i-1, -i)
-            else:
-                reg = '(%d)-(%d)' % (end - window_end, end - window_beg)
-        else:
-            if args.varyflank:
-                reg = '%d-%d' % (i, i+1)
-            else:
-                reg = '%d-%d' % (window_beg - end, window_end - end)
-
-        # in collapsed case, you can have index 0
-        if index >= 0:
-            area = 1
-        else:
-            area = -1
-            
-        _window_end += step             
-        if window_beg > 0 and window_end > window_beg:
-            print('%s\t%d\t%d\t%d\t%s\t%d\t%s' %
-                  (chrm, window_beg, window_end,
-                   index, reg, area, '\t'.join(fields)))
-
-def sample_backward(args, chrm, beg, end, fields, index_func, step, windowsize):
-
-    """ sample intervals in the direction of smaller coordinates """
-
-    _window_beg = beg - step
-    for i in xrange(args.numflank):
-        _window_end = _window_beg + windowsize
-        if args.middle:
-            window_mid = int((_window_beg + _window_end)/2.0)
-            window_beg = window_mid-1
-            window_end = window_mid
-        else:
-            window_beg = int(_window_beg)
-            window_end = int(_window_end)
-
-        index = index_func(i)
-        if index < 0:
-            if args.varyflank:
-                reg = '(%d)-(%d)' % (-i-1, -i)
-            else:
-                reg = '(%d)-(%d)' % (window_beg - beg, window_end - beg)
-        else:
-            if args.varyflank:
-                reg = '%d-%d' % (i, i+1)
-            else:
-                reg = '%d-%d' % (beg - window_end, beg - window_beg)
-
-        if index >= 0:
-            area = 1
-        else:
-            area = -1
+        self.fields = fields
+        self.chrm = fields[0]
+        self.beg  = int(fields[1])
+        self.end  = int(fields[2])
         
-        _window_beg -= step            
-        if window_beg > 0 and window_end > window_beg:
-            print('%s\t%d\t%d\t%d\t%s\t%d\t%s' %
-                  (chrm, window_beg, window_end,
-                   index, reg, area, '\t'.join(fields)))
+        if args.collapse:
+            self.mid = (self.beg + self.end + 1) / 2
+            self.beg = self.mid
+            self.end = self.mid
 
-def sample_internal(args, chrm, beg, end, fields, index_func):
-    
-    """ sample intervals internal of the input interval """
+        self.step1 = args.flankstep
+        self.step2 = args.flankstep
 
-    sentinels = list(np.linspace(beg, end, args.numinternal+1))
-    for i in xrange(len(sentinels)-1):
-        window_beg = int(sentinels[i])
-        window_end = int(sentinels[i+1])
-        if args.middle:
-            window_mid = int((sentinels[i] + sentinels[i+1])/2)
-            window_beg = window_mid-1
-            window_end = window_mid
+    def sample_forward(self, args, index_func):
 
-        index = index_func(i)
-        # 0 for internal
-        if window_beg > 0 and window_end > window_beg:
-            print('%s\t%d\t%d\t%d\t%d-%d%%\t0\t%s' %
-                  (chrm, window_beg, window_end, index,
-                   float(index)/args.numinternal*100,
-                   float(index+1)/args.numinternal*100, '\t'.join(fields)))
+        if self.step2 < 0:
+            return
+
+        _window_beg = self.end
+        for i in xrange(args.flanknumber):
+            _window_end = _window_beg + self.step2
+
+            if args.outer:
+                window_end = int(_window_end)
+                window_beg = window_end - 1
+            elif args.middle:
+                # trivial to awk, just for convenience
+                window_mid = int((_window_beg + _window_end)/2.0)
+                window_beg = window_mid-1
+                window_end = window_mid
+            else:
+                window_beg = int(_window_beg)
+                window_end = int(_window_end)
+
+            index = index_func(i)
+            if index < 0:
+                if args.flankbygene:
+                    reg = '(%d)-(%d)' % (-i-1, -i)
+                elif args.flanktoneighbor:
+                    if args.fold:
+                        reg = '(%d)-(%d)%%' % (
+                            float(-i-1)/args.flanknumber/2*100, float(-i)/args.flanknumber/2*100)
+                    else:
+                        reg = '(%d)-(%d)%%' % (
+                            float(-i-1)/args.flanknumber*100, float(-i)/args.flanknumber*100)
+                else:
+                    reg = '(%d)-(%d)' % (self.end - window_end, self.end - window_beg)
+            else:
+                if args.flankbygene:
+                    reg = '%d-%d' % (i, i+1)
+                elif args.flanktoneighbor:
+                    reg = '%d-%d%%' % (float(i)/args.flanknumber*100, float(i+1)/args.flanknumber*100)
+                else:
+                    reg = '%d-%d' % (window_beg - self.end, window_end - self.end)
+
+            # in collapsed case, you can have index 0
+            if index >= 0:
+                area = 1
+            else:
+                area = -1
+
+            if args.expansion > 0:
+                window_beg = max(window_beg - args.expansion,0)
+                window_end = window_end + args.expansion
+
+            if window_beg > 0 and window_end > window_beg:
+                print('%s\t%d\t%d\t%d\t%s\t%d\t%s' %
+                      (self.chrm, window_beg, window_end,
+                       index, reg, area, '\t'.join(self.fields)))
+                
+            _window_beg = _window_end
+            
+
+    def sample_backward(self, args, index_func):
+
+        if self.step1 < 0:
+            return
+
+        _window_end = self.beg
+        for i in xrange(args.flanknumber):
+            _window_beg = _window_end - self.step1
+
+            if args.outer:
+                window_beg = int(_window_beg)
+                window_end = window_beg + 1
+            elif args.middle:
+                # trivial to awk, just for convenience
+                window_mid = int((_window_beg + _window_end)/2.0)
+                window_beg = window_mid-1
+                window_end = window_mid
+            else:
+                window_beg = int(_window_beg)
+                window_end = int(_window_end)
+
+            index = index_func(i)
+            if index < 0:
+                if args.flankbygene:
+                    reg = '(%d)-(%d)' % (-i-1, -i)
+                elif args.flanktoneighbor:
+                    if args.fold:
+                        reg = '(%d)-(%d)%%' % (
+                            float(-i-1)/args.flanknumber/2*100, float(-i)/args.flanknumber/2*100)
+                    else:
+                        reg = '(%d)-(%d)%%' % (
+                            float(-i-1)/args.flanknumber*100, float(-i)/args.flanknumber*100)
+                else:
+                    reg = '(%d)-(%d)' % (window_beg - self.beg, window_end - self.beg)
+            else:
+                if args.flankbygene:
+                    reg = '%d-%d' % (i, i+1)
+                elif args.flanktoneighbor:
+                    if args.fold:
+                        reg = '%d-%d%%' % (
+                            float(i)/args.flanknumber/2*100, float(i+1)/args.flanknumber/2*100)
+                    else:
+                        reg = '%d-%d%%' % (
+                            float(i)/args.flanknumber*100, float(i+1)/args.flanknumber*100)
+                else:
+                    reg = '%d-%d' % (self.beg - window_end, self.beg - window_beg)
+
+            # in collapsed case, you can have index 0
+            if index >= 0:
+                area = 1
+            else:
+                area = -1
+
+            if args.expansion > 0:
+                window_beg = max(window_beg - args.expansion,0)
+                window_end = window_end + args.expansion
+
+            if window_beg > 0 and window_end > window_beg:
+                print('%s\t%d\t%d\t%d\t%s\t%d\t%s' %
+                      (self.chrm, window_beg, window_end,
+                       index, reg, area, '\t'.join(self.fields)))
+
+            _window_end = _window_beg
+
+    def sample_internal(self, args, index_func):
+
+        sentinels = list(np.linspace(self.beg, self.end, args.numinternal+1))
+        for i in xrange(len(sentinels)-1):
+            window_beg = int(sentinels[i])
+            window_end = int(sentinels[i+1])
+            if args.middle:
+                window_mid = int((sentinels[i] + sentinels[i+1])/2)
+                window_beg = window_mid-1
+                window_end = window_mid
+
+            if args.expansion > 0:
+                window_beg = max(window_beg - args.expansion,0)
+                window_end = window_end + args.expansion
+                
+            index = index_func(i)
+            # 0 for internal
+            if window_beg > 0 and window_end > window_beg:
+                print('%s\t%d\t%d\t%d\t%d-%d%%\t0\t%s' %
+                      (self.chrm, window_beg, window_end, index,
+                       float(index)/args.numinternal*100,
+                       float(index+1)/args.numinternal*100, '\t'.join(self.fields)))
+
+
+def process_record(r, r0, r2):
+
+    if args.flankbygene:
+        r.step1 = float(r.end - r.beg + 1) / (args.numinternal)
+        r.step2 = r.step1
+    elif args.flanktoneighbor:
+        if r0 is None or r.beg < r0.end:
+            r.step1 = -1
+        else:
+            r.step1 = float(r.beg - r0.end + 1) / (args.flanknumber)
+            if args.fold:
+                r.step1 /= 2
+
+        if r2 is None or r.end > r2.beg:
+            r.step2 = -1
+        else:
+            r.step2 = float(r2.beg - r.end + 1) / (args.flanknumber)
+            if args.fold:
+                r.step2 /= 2
+
+    if args.strand is None:
+        strand = '+'
+    else:
+        strand = fields[args.strand-1]
+
+    if strand == '+':
+        if args.fold:
+            r.sample_backward(args, lambda i: -i-1)
+            r.sample_internal(args, lambda i: min(i, args.numinternal-1-i))
+            r.sample_forward(args, lambda i: -i-1)
+        else:
+            r.sample_backward(args, lambda i: -i-1)
+            r.sample_internal(args, lambda i: i)
+            r.sample_forward(args, lambda i: args.numinternal+i)
+    else:
+        r.sample_backward(args, lambda i: -i-1)
+        r.sample_internal(args, lambda i: args.numinternal-1-i)
+        r.sample_backward(args, lambda i: args.numinternal+i)
+        
+    return
 
 def main(args):
 
-    if args.step > 0:
-        args.flank = args.step * args.numflank
-    elif args.numflank > 0:
-        args.step = int(args.flank / args.numflank)
-
     if args.collapse:
-        args.numinternal = 0
+        if args.outer: # inference: if only outer point is printed, then keep the collapsed middle
+            args.numinternal = 1
+        else:
+            args.numinternal = 0
 
-    if args.collapsecenter:
-        args.numinternal = 1
-
-    if args.windowsize is not None:
-        args.windowsize = args.windowsize
-    else:
-        args.windowsize = args.step
-
+    r0 = None              # the previous record
+    r  = None              # the current record
+    r2 = None              # the next record
     for line in args.table:
-        fields = line.strip('\n').split('\t')
-        chrm = fields[0]
-        beg = int(fields[1])
-        end = int(fields[2])
+        r2 = Record(line.strip('\n').split('\t'), args)
 
-        if args.varyflank:
-            step = (end - beg + 1) / (args.numinternal)
-            windowsize = step
-        else:
-            step = args.step
-            windowsize = args.windowsize
+        if r is not None: # skip the first line
+            if r.chrm == r2.chrm:
+                process_record(r, r0, r2)
+            else:               # chromosome switch
+                process_record(r, r0, None)
 
-        if args.collapse:
-            mid = (beg + end + 1) / 2
-            beg = mid
-            end = mid
+        r0 = r
+        r  = r2
 
-        if args.collapsecenter:
-            mid = (beg + end + 1) / 2
-            beg = mid - windowsize / 2
-            end = mid + windowsize / 2
 
-        if args.strand is None:
-            strand = '+'
-        else:
-            strand = fields[args.strand-1]
-
-        if strand == '+':
-            if args.fold:
-                sample_backward(args, chrm, beg, end, fields, lambda i: -i-1, step, windowsize)
-                sample_internal(args, chrm, beg, end, fields, lambda i: min(i, args.numinternal-1-i))
-                sample_forward(args, chrm, beg, end, fields, lambda i: -i-1, step, windowsize)
-            else:
-                sample_backward(args, chrm, beg, end, fields, lambda i: -i-1, step, windowsize)
-                sample_internal(args, chrm, beg, end, fields, lambda i: i)
-                sample_forward(args, chrm, beg, end, fields, lambda i: args.numinternal+i, step, windowsize)
-        else:
-            sample_forward(args, chrm, beg, end, fields, lambda i: -i-1, step, windowsize)
-            sample_internal(args, chrm, beg, end, fields, lambda i: args.numinternal-1-i)
-            sample_backward(args, chrm, beg, end, fields, lambda i: args.numinternal+i, step, windowsize)
+    # the last record
+    r2 = None
+    process_record(r, r0, r2)
 
     return
 
@@ -175,21 +251,33 @@ if __name__ == '__main__':
     # report middle point for each sampled interval
     parser.add_argument('--middle', action = 'store_true', 
                         help = 'use middle point of each interval as the sentinel')
+    parser.add_argument('--outer', action = 'store_true',
+                        help = 'use outer point of each interval as the sentinel')
     parser.add_argument('--collapse', action = 'store_true', 
                         help = 'collapse initial interval to middle')
-    parser.add_argument('--collapsecenter', action = 'store_true',
-                        help = 'collapse initial interval to middle but center one interval "on" the middle point')
+    # the collapsecenter is obsolete, instead use --collapse --outer
+    # parser.add_argument('--collapsecenter', action = 'store_true',
+    # help = 'collapse initial interval to middle but center one interval "on" the middle point')
+    
     # controls flanking length
-    parser.add_argument('-f', '--flank', default=10000, type=int, 
-                        help = 'length of flanking to plot, default 10kb')
-    parser.add_argument('--varyflank', action = 'store_true',
+    # parser.add_argument('-f', '--flank', default=10000, type=int, 
+    # help = 'length of flanking to plot, default 10kb')
+    # --flank is also obsolete, it is replaced by --flankstep X --flanknumber Y
+    parser.add_argument('--flanktoneighbor', action = 'store_true',
+                        help = 'length of flanking is dependent on the nearest record')
+    parser.add_argument('--flankbygene', action = 'store_true', # previously called varyflank
                         help = 'allow flanking region to vary according to the gene length')
-    parser.add_argument('-F', '--step', type = int, default=-1, 
+    parser.add_argument('-f', '--flankstep', type = int, default=100, 
                         help = 'plot each X bases for flanking sequences, by default false (-1), this overrides -f')
-    parser.add_argument('-m', '--numflank', type = int, default=30, 
+    parser.add_argument('-m', '--flanknumber', type = int, default=30, 
                         help = 'number of points to sample in the flanking region')
-    parser.add_argument('-w', '--windowsize', type = int, default=None, 
-                        help='Window Size, default to step size (non-overlapping windows)')
+
+    parser.add_argument('--expansion', type=int, default=0,
+                        help = 'number of bases to expand in the two directions')
+    # I don't think you need to specify window size, just do it by --middle and awk-expand
+    # parser.add_argument('-w', '--windowsize', type = int, default=None,
+    # help='Window Size, default to step size (non-overlapping windows)')
+
     # controls internal sampling
     parser.add_argument('-n', '--numinternal', type = int, default=30, 
                         help = 'number of points to sample in the genic/internal region, --middle ignores this')
