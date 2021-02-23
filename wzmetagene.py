@@ -31,7 +31,7 @@ class Record(object):
             return
 
         _window_beg = self.end
-        for i in xrange(args.flanknumber):
+        for i in range(args.flanknumber):
             _window_end = _window_beg + self.step2
 
             if args.outer:
@@ -91,7 +91,7 @@ class Record(object):
             return
 
         _window_end = self.beg
-        for i in xrange(args.flanknumber):
+        for i in range(args.flanknumber):
             _window_beg = _window_end - self.step1
 
             if args.outer:
@@ -152,7 +152,7 @@ class Record(object):
     def sample_internal(self, args, index_func):
 
         sentinels = list(np.linspace(self.beg, self.end, args.numinternal+1))
-        for i in xrange(len(sentinels)-1):
+        for i in range(len(sentinels)-1):
             window_beg = int(sentinels[i])
             window_end = int(sentinels[i+1])
             if args.middle:
@@ -196,7 +196,7 @@ def process_record(r, r0, r2):
     if args.strand is None:
         strand = '+'
     else:
-        strand = fields[args.strand-1]
+        strand = r.fields[args.strand-1]
 
     if strand == '+':
         if args.fold:
@@ -208,7 +208,7 @@ def process_record(r, r0, r2):
             r.sample_internal(args, lambda i: i)
             r.sample_forward(args, lambda i: args.numinternal+i)
     else:
-        r.sample_backward(args, lambda i: -i-1)
+        r.sample_forward(args, lambda i: -i-1)
         r.sample_internal(args, lambda i: args.numinternal-1-i)
         r.sample_backward(args, lambda i: args.numinternal+i)
         
