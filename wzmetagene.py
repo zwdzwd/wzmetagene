@@ -151,6 +151,24 @@ class Record(object):
 
     def sample_internal(self, args, index_func):
 
+        if args.outer:
+            sentinels = list(np.linspace(self.beg+1, self.end, args.numinternal))
+            for i in range(len(sentinels)):
+                window_end = int(sentinels[i])
+                window_beg = window_end - 1
+
+                if args.expansion > 0:
+                    window_beg = max(window_beg - args.expansion,0)
+                    window_end = window_end + args.expansion
+
+                index = index_func(i)
+                if window_beg > 0 and window_end > window_beg:
+                    print('%s\t%d\t%d\t%d\t%d-%d%%\t0\t%s' %
+                            (self.chrm, window_beg, window_end, index,
+                             float(index)/args.numinternal*100,
+                             float(index+1)/args.numinternal*100, '\t'.join(self.fields)))
+            return
+
         sentinels = list(np.linspace(self.beg, self.end, args.numinternal+1))
         for i in range(len(sentinels)-1):
             window_beg = int(sentinels[i])
