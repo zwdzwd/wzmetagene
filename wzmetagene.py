@@ -216,15 +216,22 @@ def process_record(r, r0, r2):
     else:
         strand = r.fields[args.strand-1]
 
-    if strand == '+':
-        if args.fold:
-            r.sample_backward(args, lambda i: -i-1)
-            r.sample_internal(args, lambda i: min(i, args.numinternal-1-i))
-            r.sample_forward(args, lambda i: -i-1)
+    if args.ignoreend:
+        args.numinternal = 1
+        if strand == '+':
+            r.end = r.beg + 1
         else:
-            r.sample_backward(args, lambda i: -i-1)
-            r.sample_internal(args, lambda i: i)
-            r.sample_forward(args, lambda i: args.numinternal+i)
+            r.beg = r.end - 1
+
+    if args.fold:
+        r.sample_backward(args, lambda i: -i-1)
+        r.sample_internal(args, lambda i: min(i, args.numinternal-1-i))
+        r.sample_forward(args, lambda i: -i-1)
+
+    if strand == '+':
+        r.sample_backward(args, lambda i: -i-1)
+        r.sample_internal(args, lambda i: i)
+        r.sample_forward(args, lambda i: args.numinternal+i)
     else:
         r.sample_forward(args, lambda i: -i-1)
         r.sample_internal(args, lambda i: args.numinternal-1-i)
@@ -284,7 +291,7 @@ if __name__ == '__main__':
     parser.add_argument('--flanktoneighbor', action = 'store_true',
                         help = 'length of flanking is dependent on the nearest record')
     parser.add_argument('--flankbygene', action = 'store_true', # previously called varyflank
-                        help = 'allow flanking region to vary according to the gene length')
+                        help = 'allow the size of flanking steps to vary according to the gene length')
     parser.add_argument('-f', '--flankstep', type = int, default=100, 
                         help = 'plot each X bases for flanking sequences, by default false (-1), this overrides -f (default 100)')
     parser.add_argument('-m', '--flanknumber', type = int, default=30, 
@@ -304,6 +311,8 @@ if __name__ == '__main__':
                         help = 'use the same index for intervals from two sides the target, usually used when strand is irrelevant')
     parser.add_argument('-s', '--strand', type=int, default=None, 
                         help = 'the field which contains strand information, if None then ignore strand')
+    parser.add_argument('--ignoreend', action='store_true',
+            help = 'ignore the end of the input interval')
 
     parser.set_defaults(func=main)
     args = parser.parse_args()
