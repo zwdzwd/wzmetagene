@@ -286,9 +286,9 @@ if __name__ == '__main__':
     parser.add_argument('--flankbygene', action = 'store_true', # previously called varyflank
                         help = 'allow flanking region to vary according to the gene length')
     parser.add_argument('-f', '--flankstep', type = int, default=100, 
-                        help = 'plot each X bases for flanking sequences, by default false (-1), this overrides -f')
+                        help = 'plot each X bases for flanking sequences, by default false (-1), this overrides -f (default 100)')
     parser.add_argument('-m', '--flanknumber', type = int, default=30, 
-                        help = 'number of points to sample in the flanking region')
+                        help = 'number of points to sample in the flanking region (default 30)')
 
     parser.add_argument('--expansion', type=int, default=0,
                         help = 'number of bases to expand in the two directions')
@@ -298,7 +298,7 @@ if __name__ == '__main__':
 
     # controls internal sampling
     parser.add_argument('-n', '--numinternal', type = int, default=30, 
-                        help = 'number of points to sample in the genic/internal region, --middle ignores this')
+                        help = 'number of points to sample in the genic/internal region, --middle ignores this (default 30)')
     # others
     parser.add_argument('--fold', action = 'store_true', 
                         help = 'use the same index for intervals from two sides the target, usually used when strand is irrelevant')
