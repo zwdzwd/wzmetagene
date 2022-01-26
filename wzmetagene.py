@@ -163,10 +163,9 @@ class Record(object):
 
                 index = index_func(i)
                 if window_beg > 0 and window_end > window_beg:
-                    print('%s\t%d\t%d\t%d\t%d-%d%%\t0\t%s' %
+                    print('%s\t%d\t%d\t%d\t%d%%\t0\t%s' %
                             (self.chrm, window_beg, window_end, index,
-                             float(index)/args.numinternal*100,
-                             float(index+1)/args.numinternal*100, '\t'.join(self.fields)))
+                             float(index)/(args.numinternal-1)*100, '\t'.join(self.fields)))
             return
 
         sentinels = list(np.linspace(self.beg, self.end, args.numinternal+1))
