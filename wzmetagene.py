@@ -30,9 +30,10 @@ class Record(object):
         if self.step2 < 0:
             return
 
+        step = self.step2
         _window_beg = self.end
         for i in range(args.flanknumber):
-            _window_end = _window_beg + self.step2
+            _window_end = _window_beg + step
 
             if args.outer:
                 window_end = int(_window_end)
@@ -42,6 +43,9 @@ class Record(object):
                 window_mid = int((_window_beg + _window_end)/2.0)
                 window_beg = window_mid-1
                 window_end = window_mid
+            elif args.step_and_swell:
+                window_beg = _window_beg - step/2.0
+                window_end = _window_beg + step/2.0
             else:
                 window_beg = int(_window_beg)
                 window_end = int(_window_end)
@@ -57,6 +61,8 @@ class Record(object):
                     else:
                         reg = '(%d)-(%d)%%' % (
                             float(-i-1)/args.flanknumber*100, float(-i)/args.flanknumber*100)
+                elif args.step_and_swell:
+                    reg = '%d -/+%d' % (self.end - _window_beg, step/2.0)
                 else:
                     reg = '(%d)-(%d)' % (self.end - window_end, self.end - window_beg)
             else:
@@ -64,6 +70,8 @@ class Record(object):
                     reg = '%d-%d' % (i, i+1)
                 elif args.flanktoneighbor:
                     reg = '%d-%d%%' % (float(i)/args.flanknumber*100, float(i+1)/args.flanknumber*100)
+                elif args.step_and_swell:
+                    reg = '%d -/+%d' % (_window_beg - self.end, step/2.0)
                 else:
                     reg = '%d-%d' % (window_beg - self.end, window_end - self.end)
 
@@ -83,6 +91,8 @@ class Record(object):
                        index, reg, area, '\t'.join(self.fields)))
                 
             _window_beg = _window_end
+            if args.flankstep_increase:
+                step *= 2
             
 
     def sample_backward(self, args, index_func):
@@ -90,9 +100,10 @@ class Record(object):
         if self.step1 < 0:
             return
 
+        step = self.step1
         _window_end = self.beg
         for i in range(args.flanknumber):
-            _window_beg = _window_end - self.step1
+            _window_beg = _window_end - step
 
             if args.outer:
                 window_beg = int(_window_beg)
@@ -102,6 +113,9 @@ class Record(object):
                 window_mid = int((_window_beg + _window_end)/2.0)
                 window_beg = window_mid-1
                 window_end = window_mid
+            elif args.step_and_swell:
+                window_beg = _window_end - step/2.0
+                window_end = _window_end + step/2.0
             else:
                 window_beg = int(_window_beg)
                 window_end = int(_window_end)
@@ -117,6 +131,8 @@ class Record(object):
                     else:
                         reg = '(%d)-(%d)%%' % (
                             float(-i-1)/args.flanknumber*100, float(-i)/args.flanknumber*100)
+                elif args.step_and_swell:
+                    reg = '%d -/+%d' % (_window_end - self.beg, step/2.0)
                 else:
                     reg = '(%d)-(%d)' % (window_beg - self.beg, window_end - self.beg)
             else:
@@ -129,6 +145,8 @@ class Record(object):
                     else:
                         reg = '%d-%d%%' % (
                             float(i)/args.flanknumber*100, float(i+1)/args.flanknumber*100)
+                elif args.step_and_swell:
+                    reg = '%d -/+%d' % (self.beg - _window_end, step/2.0)
                 else:
                     reg = '%d-%d' % (self.beg - window_end, self.beg - window_beg)
 
@@ -148,6 +166,9 @@ class Record(object):
                        index, reg, area, '\t'.join(self.fields)))
 
             _window_end = _window_beg
+
+            if args.flankstep_increase:
+                step *= 2
 
     def sample_internal(self, args, index_func):
 
@@ -282,7 +303,8 @@ if __name__ == '__main__':
     # the collapsecenter is obsolete, instead use --collapse --outer
     # parser.add_argument('--collapsecenter', action = 'store_true',
     # help = 'collapse initial interval to middle but center one interval "on" the middle point')
-    
+    parser.add_argument('--step_and_swell', action = 'store_true',
+                        help = 'swell to step size, use inner points')
     # controls flanking length
     # parser.add_argument('-f', '--flank', default=10000, type=int, 
     # help = 'length of flanking to plot, default 10kb')
@@ -293,6 +315,8 @@ if __name__ == '__main__':
                         help = 'allow the size of flanking steps to vary according to the gene length')
     parser.add_argument('-f', '--flankstep', type = int, default=100, 
                         help = 'plot each X bases for flanking sequences, by default false (-1), this overrides -f (default 100)')
+    parser.add_argument('--flankstep_increase', action = 'store_true',
+                        help = 'flanking step size doubles every step')
     parser.add_argument('-m', '--flanknumber', type = int, default=30, 
                         help = 'number of points to sample in the flanking region (default 30)')
 
