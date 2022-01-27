@@ -90,10 +90,11 @@ class Record(object):
                       (self.chrm, window_beg, window_end,
                        index, reg, area, '\t'.join(self.fields)))
                 
-            _window_beg = _window_end
             if args.flankstep_increase:
+                _window_beg = _window_beg + step*1.5
                 step *= 2
-            
+            else:
+                _window_beg = _window_end
 
     def sample_backward(self, args, index_func):
 
@@ -135,6 +136,7 @@ class Record(object):
                     reg = '%d -/+%d' % (_window_end - self.beg, step/2.0)
                 else:
                     reg = '(%d)-(%d)' % (window_beg - self.beg, window_end - self.beg)
+
             else:
                 if args.flankbygene:
                     reg = '%d-%d' % (i, i+1)
@@ -165,10 +167,11 @@ class Record(object):
                       (self.chrm, window_beg, window_end,
                        index, reg, area, '\t'.join(self.fields)))
 
-            _window_end = _window_beg
-
             if args.flankstep_increase:
+                _window_end = _window_end - step*1.5
                 step *= 2
+            else:
+                _window_end = _window_beg
 
     def sample_internal(self, args, index_func):
 
